@@ -14,3 +14,21 @@ offsets; DGROUP DS=1FB3 (doc `DS:xxxx` offsets apply directly).
 | DS:C0CC | saved previous INT 09 far vector | TRACED | contains F000:FF53 after boot |
 | PIT ch0 reload 0x13B1 | master tick 236.69 Hz | OBSERVED | dos.pit_channel0_reload after boot; matches KB |
 | 1010:5557 (ret inside helper ~5330..5381) | tick-wait poll helper (name TBD) | OBSERVED | spin site when no timer IRQs pumped; loops `call …; cmp ax,[bp+08]; jl` |
+| 1010:6C26 | wait_ticks(AX=delta) — spin head 6C40 (target dword SS:BP-4/BP-2) | TRACED | lindis 6C26..6C56; spin observed |
+| 1010:6C57 | set_deadline(AX=delta) → DS:C0D0/C0D2 | TRACED | lindis 6C57..6C6E |
+| 1010:6C6F | wait_deadline — spin head 6C71 (tick32 < DS:C0D0/C0D2) | TRACED | lindis; exercised as timer_wait boundary in 4000-frame lockstep |
+| 1010:6C87 | deadline_elapsed? (non-blocking) | TRACED | lindis 6C87..6CA5; called from intro 55BA and menu AFF9 |
+| DS:0B76/0B78 | 32-bit master tick counter | TRACED | ISR increments; wait helpers compare |
+| DS:C0D0/C0D2 | deadline dword | TRACED | set by 6C57, read by 6C6F/6C87 |
+| DS:0B7A/0B7C | saved BIOS INT 08 far vector | TRACED | installer 6B7A stores via INT21 AH=35 |
+| 1010:C1A0 | per-tick service (suspected audio/sequencer — UNCONFIRMED) | OBSERVED | called from ISR each tick behind flag checks DS:237C/176E/1772 |
+| 1010:6B1A | blocking key read (INT16 AH=00, F1..F10 special path via 792C/7964) | TRACED | lindis + live INT16 counts |
+| 1010:6B4A | non-blocking key check (INT16 AH=01) | TRACED | lindis + live INT16 counts |
+| 1010:6B66 | flush keyboard buffer | TRACED | lindis 6B66..6B73 |
+| 1010:6B7A | timer install (saves old vec, installs 6BCF, PIT←0x13B1) | TRACED | lindis |
+| 1010:6BAC | timer uninstall (restores vec, PIT←0x10000) | TRACED | lindis |
+| 1010:5595 | intro input-wait loop head (Enter=0D/Esc=1B exits, attract timeout) | TRACED | lindis 5595..55C6; park histogram |
+| 1010:B08A | sign-in/menu poll-loop head (call 6B4A; AFF9 call 6C87) | TRACED | one-cycle trace (24 instructions) |
+| DS:08FC | last key read in intro loop | OBSERVED | 559F stores AX |
+| 1010:6E11..6E97 | DAT load/decompress hot loop (boot) | OBSERVED | park histogram during load |
+| DS:3924 | far-ptr table to page buffers (blit source/dest) | OBSERVED | blit routine at 0604..063D uses it; 320-byte rows |

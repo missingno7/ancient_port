@@ -31,6 +31,22 @@ def create_game_runtime(
     return create_runtime(exe_path, game_root=game_root, command_tail=command_tail)
 
 
+def boot_to_intro(rt: Runtime) -> None:
+    """Deterministic canonical boot: reach the intro 'press Enter' screen.
+
+    Recipe (versioned — changing it invalidates cached snapshots): 200k free
+    steps (init + ISR install), then 25000 batches of 2000 steps + one
+    delivered INT 08h master tick.  Ends parked in the intro input-wait loop
+    (head 1010:5595) with the screen fully drawn.
+    """
+    from dos_re.interrupts import deliver_interrupt
+
+    rt.cpu.run(200_000)
+    for _ in range(25_000):
+        rt.cpu.run(2_000)
+        deliver_interrupt(rt, 0x08)
+
+
 def load_game_snapshot(
     exe_path: str | Path,
     snapshot_dir: str | Path,

@@ -35,13 +35,37 @@ PC-speaker SFX must work; CGA/EGA stay isolated and never block VGA.
   this way advances intro → Player Sign-In menu. Evidence:
   `artifacts/snap_after_enter/frame.png`.
 
+## 2026-07-06 (later) — frame verifier standing, boundary clock unified (OBSERVED)
+
+- **Timing architecture traced** (ancient/timing.py): timer ISR 1010:6BCF
+  increments 32-bit master tick DS:0B76/0B78, chains saved BIOS INT8
+  (DS:0B7A) every 13th tick, calls per-tick service 1010:C1A0 (suspected
+  audio — unconfirmed). Wait helpers 6C26 (wait_ticks, spin head **6C40**),
+  6C57 (set_deadline DS:C0D0/C0D2), 6C6F (wait_deadline, spin head **6C71**),
+  6C87 (non-blocking deadline check).
+- **Unified demo clock** (all drivers): one boundary = one delivered real
+  INT 08h ISR (never a flag poke). Boundary kinds: `timer_wait` at 6C40/6C71
+  (condition-gated) and `input_wait` at poll-loop heads **1010:5595** (intro,
+  Enter/Esc + attract timeout) and **1010:B08A** (sign-in menu). Registry:
+  ancient/input_waits.py, consumed via frame_verify_wait_detector.
+- **Frame verifier** (ancient/frame_verify.py): detector-only boundaries, no
+  replacement hooks; sample = A000 VRAM 64000B + 768B DAC palette + RGB.
+  Evidence: no-op lockstep 4000 boundaries PASS **across the attract-mode
+  screen transition** (both boundary kinds exercised); corrupted-candidate
+  control caught at frame 1. Committed gate: tests/test_ancient_frame_verify.py
+  (cached canonical intro snapshot via ancient.runtime.boot_to_intro).
+
 ## Next
 
-1. Find frame boundaries (timer wait / retrace wait / present) —
-   profile_hotspots + lindis; stand up frame verifier with no-op candidate.
-2. Input-wait registry (the intro "press Enter" poll is the first entry —
-   canonical head TBD).
-3. First demo recording once boundaries + waits are unified.
+1. Record the first demo (intro → sign-in → into gameplay); verify identical
+   replay under every driver. Needs key delivery wired into the demo
+   recorder (scan + dos_key dual path per the ISR's BIOS chain).
+2. Find the present/blit routine (page-buffer far-ptr table at DS:3924) for
+   a present boundary; widen the sample toward full observable state.
+3. First lifting targets: the DAT decompressor hot loop at 1010:6E11..6E97
+   (boot spends ~40M+ instructions there), per porting guide step 7.
+4. Audio: confirm 1010:C1A0 is the sequencer service; map PC-speaker/OPL
+   port writes (owner priority: AdLib music + PC-speaker SFX must work).
 
 ## Blockers
 

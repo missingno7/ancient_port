@@ -1,0 +1,24 @@
+AE FRAME VERIFY DIVERGENCE
+frame: 1
+context: vga13h
+source: both
+REF continuation:  1010:5595 steps=13
+HOOK continuation: 1010:5595 steps=13
+Raw video differences:
+  REF crc:  02C95ED9
+  HOOK crc: 73E1B7F3
+  first differing byte: 32160
+
+Rendered RGB differences:
+  REF crc:  356D6530
+  HOOK crc: B1AF9E52
+  first differing pixel: x=160 y=100 channel=0
+
+Recent candidate hooks before divergence:
+  <none>
+
+Recent candidate sample-changing hooks before divergence:
+  <not enabled>
+
+Recent reference hooks before divergence:
+  <none>

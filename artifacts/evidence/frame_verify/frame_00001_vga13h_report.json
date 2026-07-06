@@ -1,0 +1,39 @@
+{
+  "frame": 1,
+  "context": "vga13h",
+  "source": "both",
+  "reference": {
+    "side": "reference",
+    "frame_no": 1,
+    "kind": "input_wait",
+    "hook": "1010:5595",
+    "continuation": "1010:5595",
+    "steps_since_start": 13,
+    "boundary_steps": 13,
+    "display_start": "0000",
+    "raw_crc": "02C95ED9",
+    "rgb_crc": "356D6530",
+    "width": 320,
+    "height": 200,
+    "context": "vga13h",
+    "recent_hooks": [],
+    "recent_sample_changes": []
+  },
+  "candidate": {
+    "side": "candidate",
+    "frame_no": 1,
+    "kind": "input_wait",
+    "hook": "1010:5595",
+    "continuation": "1010:5595",
+    "steps_since_start": 13,
+    "boundary_steps": 13,
+    "display_start": "0000",
+    "raw_crc": "73E1B7F3",
+    "rgb_crc": "B1AF9E52",
+    "width": 320,
+    "height": 200,
+    "context": "vga13h",
+    "recent_hooks": [],
+    "recent_sample_changes": []
+  }
+}
