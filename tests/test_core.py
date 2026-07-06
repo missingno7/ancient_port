@@ -317,3 +317,50 @@ def test_mode_set_no_clear_bit_preserves_planar_planes():
     cpu.s.ax = 0x008D                 # AL=0Dh | 80h => no clear
     dos.int10(cpu)
     assert _planes_any_nonzero(mem) == [True, True, True, True]
+
+
+def test_cwd_sign_extends_ax_into_dx():
+    # AEPROG.EXE uses CWD before IDIV during startup layout math.
+    cpu = run_bytes(bytes.fromhex("b8 00 80 99 f4"), 2)   # mov ax,8000h; cwd
+    assert cpu.s.dx == 0xFFFF
+    cpu = run_bytes(bytes.fromhex("b8 ff 7f 99 f4"), 2)   # mov ax,7FFFh; cwd
+    assert cpu.s.dx == 0x0000
+
+
+def test_int10_read_display_combination_reports_vga():
+    from dos_re.cpu import CF
+    cpu = CPU8086(Memory(), CPUState(cs=0x1000, ds=0x1000, es=0x1000, ss=0x1000, sp=0xFFFE))
+    dos = DOSMachine(root=Path('.'))
+    cpu.s.ax = 0x1A00
+    dos.interrupt(cpu, 0x10)
+    assert cpu.s.ax & 0xFF == 0x1A      # function supported
+    assert cpu.s.bx & 0xFF == 0x08      # colour analog VGA
+    assert not cpu.get_flag(CF)
+
+
+def test_int15_system_config_unsupported_on_8086():
+    from dos_re.cpu import CF
+    cpu = CPU8086(Memory(), CPUState(cs=0x1000, ds=0x1000, es=0x1000, ss=0x1000, sp=0xFFFE))
+    dos = DOSMachine(root=Path('.'))
+    cpu.s.ax = 0xC000
+    dos.interrupt(cpu, 0x15)
+    assert (cpu.s.ax >> 8) & 0xFF == 0x86
+    assert cpu.get_flag(CF)
+
+
+def test_int21_ioctl_get_device_info_file_and_std_handles():
+    from dos_re.cpu import CF
+    from dos_re.dos import FileHandle
+    cpu = CPU8086(Memory(), CPUState(cs=0x1000, ds=0x1000, es=0x1000, ss=0x1000, sp=0xFFFE))
+    dos = DOSMachine(root=Path('.'))
+    dos.files[5] = FileHandle(Path('X.DAT'), bytearray(b'x'))
+    cpu.s.ax, cpu.s.bx = 0x4400, 5
+    dos.interrupt(cpu, 0x21)
+    assert cpu.s.dx & 0x80 == 0         # bit 7 clear: block-device file
+    assert not cpu.get_flag(CF)
+    cpu.s.ax, cpu.s.bx = 0x4400, 1      # stdout: character device
+    dos.interrupt(cpu, 0x21)
+    assert cpu.s.dx & 0x80
+    cpu.s.ax, cpu.s.bx = 0x4400, 42     # unknown handle: CF + error 6
+    dos.interrupt(cpu, 0x21)
+    assert cpu.get_flag(CF) and cpu.s.ax == 6

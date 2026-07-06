@@ -20,7 +20,8 @@ from pathlib import Path
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-PACKAGE_ROOTS = (ROOT / "dos_re", ROOT / "tools", ROOT / "examples", ROOT / "tests")
+PACKAGE_ROOTS = (ROOT / "dos_re", ROOT / "tools", ROOT / "examples", ROOT / "tests",
+                 ROOT / "ancient")
 
 # Modules the framework core is allowed to import besides the stdlib.
 CORE_ALLOWED_PREFIXES = ("dos_re",)
