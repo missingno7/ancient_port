@@ -55,17 +55,45 @@ PC-speaker SFX must work; CGA/EGA stay isolated and never block VGA.
   control caught at frame 1. Committed gate: tests/test_ancient_frame_verify.py
   (cached canonical intro snapshot via ancient.runtime.boot_to_intro).
 
+## 2026-07-07 — scripts/play.py: the owner's interactive entrypoint (OBSERVED)
+
+- `scripts/play.py`: live viewer (VGA 13h, tools/display presenter), boots
+  cold / `--boot-intro` (cached canonical snapshot) / `--snapshot DIR`;
+  **F12** snapshot, **F11** demo record toggle, `--play-demo DIR` replay;
+  `--frames N` headless smoke. Key delivery via the shared
+  `ancient.keys.deliver_game_key` (scan + dos_key dual path).
+- **Interactive (chunked) demo clock**: one presented frame = fixed
+  `--chunk-steps` budget with the frame's IRQ quota (master tick 236.70 Hz /
+  present_hz) interleaved at fixed sub-batches; params stored in the demo
+  manifest and restored on replay. `run_frame` in play.py is the single
+  shared frame-advance (loop + tests use it).
+- **Proven**: state digests identical across runs and audio on/off (audio is
+  observer-only); CLI record→replay identical (digest + CPU addr + icount);
+  committed gate `tests/test_ancient_demo_roundtrip.py` records a demo with
+  a real Enter press (exercises both delivery paths, visibly advances the
+  intro) and replays bit-identically.
+- **Audio**: live sink = Nuked-OPL3 (built: `python -m nuked_opl3._ffi_build`)
+  + PC-speaker square wave on a pygame channel with jitter lead. Intro plays
+  speaker SFX in the VM (119 speaker events/10 s observed). Game *detected*
+  AdLib (active port DS:1830=0x388) but music config **DS:1778=0** (off) —
+  KB audio.md: 1=PSG, 2=OPL2, 3=port 0x205. Selection is in-game (Options F3
+  / per-player config) — confirm interactively, then trace where DS:1778 is
+  written. (KB confirms 1010:C1A0 is the sound tick — CANONICAL there.)
+- **Known-open (charter §6)**: play.py's chunked clock and the frame
+  verifier's wait-head boundary clock are two different demo-clock
+  definitions. Fine while each driver replays its own recordings; must be
+  unified before the proof-corpus demos are recorded (porting guide step 6).
+
 ## Next
 
-1. Record the first demo (intro → sign-in → into gameplay); verify identical
-   replay under every driver. Needs key delivery wired into the demo
-   recorder (scan + dos_key dual path per the ISR's BIOS chain).
-2. Find the present/blit routine (page-buffer far-ptr table at DS:3924) for
+1. Owner playtest via scripts/play.py: enable music in-game (Options F3),
+   confirm AdLib path live; then trace the DS:1778 write site.
+2. Unify the demo-clock definition across play.py and the frame verifier
+   before recording proof-corpus demos.
+3. Find the present/blit routine (page-buffer far-ptr table at DS:3924) for
    a present boundary; widen the sample toward full observable state.
-3. First lifting targets: the DAT decompressor hot loop at 1010:6E11..6E97
+4. First lifting targets: the DAT decompressor hot loop at 1010:6E11..6E97
    (boot spends ~40M+ instructions there), per porting guide step 7.
-4. Audio: confirm 1010:C1A0 is the sequencer service; map PC-speaker/OPL
-   port writes (owner priority: AdLib music + PC-speaker SFX must work).
 
 ## Blockers
 
