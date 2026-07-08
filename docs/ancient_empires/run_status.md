@@ -6,6 +6,20 @@ routine is recovered and hook-oracle verified. Owner priorities: VGA is the
 primary video mode; AdLib/OPL music and PC-speaker SFX must work; CGA/EGA
 stay isolated and never block VGA.
 
+## 2026-07-08 — play.py rebased onto the unified dos_re.player runner (VERIFIED)
+
+- `scripts/play.py` is now a thin `AncientFrontend` over `dos_re.player` (the
+  standard CLI: viewer by default / `--headless`; `--play-demo` +
+  `--demo-continue`; F10 screenshot joins F11/F12). The game-specific chunked
+  demo clock moved intact to **`ancient/frame_clock.py`** (`run_frame`,
+  `master_tick_hz`, `ticks_for_frame` — play.py re-exports them, so
+  `from play import run_frame` consumers are unchanged). The AudioSink was
+  promoted verbatim into the framework (`dos_re/audio_sink.py`, wired as
+  `--audio adlib`, this port's default; `--no-audio` became `--audio off`).
+  Demo manifests keep the historical `{chunk_steps, present_hz}` keys —
+  existing demos replay unchanged (`--chunk-steps` stays as an alias).
+  Suite green (127), boot-intro viewer smoke green.
+
 ## 2026-07-08 — first recovered island: the sprite blitter at 1010:08F2 (ASM_MATCHED)
 
 - **Evidence for the target**: `ancient/probes/profile_gameplay.py` (drives
