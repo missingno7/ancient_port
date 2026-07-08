@@ -113,15 +113,29 @@ PC-speaker SFX must work; CGA/EGA stay isolated and never block VGA.
 - **Still open:** menu text renders red (index 4) but should be black — logged
   in blockers.md (separate root cause; reference port confirms black).
 
+## 2026-07-07 (later) — red menu text fixed (file-handle table overrun)
+
+- **Bug (owner-reported):** menu/list text drew red; should be black (reference
+  port confirms black). **Root cause (a second VM bug):** the game keeps a
+  per-file-handle table at DS:38CC (`[bx+38CC]=open_flags|0x8000`, bx=handle*2).
+  Our DOS handle allocator used a monotonic counter with no reuse, so boot
+  asset-loading pushed handles to 28+; handle 28's slot is DS:3904[0] — the
+  text-colour table — so the handle table overran it, writing 0x8004 (mode-4
+  flags) over colour indices 0..8. Every menu glyph then drew in colour 4 (red).
+- **Fix (framework, game-agnostic):** `DOSMachine._alloc_handle` returns the
+  lowest free handle (>=5) and reuses closed ones, like real DOS. Handles now
+  stay <=~13; DS:3904 stays identity. Fresh sign-in renders **black** text
+  (evidence: artifacts/snap_signin_fixed/frame.png). Test:
+  `test_file_handles_reuse_lowest_free_slot`. blockers.md updated (RESOLVED).
+- Both owner-reported issues (dead arrows, red text) were VM bugs, now fixed.
+
 ## Next
 
-1. **Red menu text** (blockers.md): trace the write of 0x8004 to DS:3904[0..8]
-   during intro→sign-in; determine VM-divergence vs faithful.
-2. Owner playtest via scripts/play.py: enable music in-game (Options F3),
-   confirm AdLib path live; then trace the DS:1778 write site.
-3. Unify the demo-clock definition across play.py and the frame verifier
+1. Owner playtest via scripts/play.py: confirm arrows + black text live; enable
+   music in-game (Options F3), confirm AdLib path; then trace DS:1778 write.
+2. Unify the demo-clock definition across play.py and the frame verifier
    before recording proof-corpus demos.
-4. First lifting targets: the DAT decompressor hot loop at 1010:6E11..6E97.
+3. First lifting targets: the DAT decompressor hot loop at 1010:6E11..6E97.
 
 ## Blockers
 

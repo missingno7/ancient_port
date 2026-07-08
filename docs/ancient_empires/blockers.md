@@ -1,6 +1,21 @@
 # Blockers — evidence log for slices that could not be finished byte-exact
 
-## OPEN — menu text drawn red (should be black)
+## RESOLVED 2026-07-07 — menu text red (was: file-handle table overrun)
+
+Root cause found and fixed. The red text was DS:3904 (text-colour table)
+corrupted to 0x8004. Traced the writer to the game's per-handle file table at
+DS:38CC (`ds:[bx+0x38CC] = open_flags | 0x8000`, bx = handle*2). Our VM
+allocated file handles with a monotonic counter that never reused closed
+handles, so during boot asset loading handles climbed to 28+; handle 28's slot
+(0x38CC + 28*2 = 0x3904) and up overran into the colour table, writing 0x8004
+(= mode-4 open flags | 0x8000) over colour indices 0..8 → all menu text drew
+in colour index 4 (red). Fix: `DOSMachine._alloc_handle` returns the lowest
+free handle (>=5) and reuses closed ones, like real DOS — handles now stay
+<=~13 and never reach the colour table. Verified: fresh sign-in renders black
+text (matches the reference port). Test: test_core.py
+`test_file_handles_reuse_lowest_free_slot`.
+
+## (historical) OPEN — menu text drawn red (should be black)
 
 **Symptom:** In VGA mode 13h the menu/list text (player names, "Explorer/
 Expert") renders as color index 4 (red). The reference port
