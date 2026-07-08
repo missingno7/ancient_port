@@ -275,11 +275,29 @@ class CPU8086:
         setattr(self.s, SREG[idx], value & 0xFFFF)
 
     def fetch8(self) -> int:
-        v = self.mem.rb(self.s.cs, self.s.ip)
-        self.s.ip = (self.s.ip + 1) & 0xFFFF
+        # Hot path: code fetch bypasses Memory.rb's EGA-aperture branch when no
+        # planar mode is active (behaviour-identical; rb() would take the same
+        # plain self.data[a] path after two extra function-call frames).
+        s = self.s
+        mem = self.mem
+        if not mem.ega_planar:
+            v = mem.data[((s.cs << 4) + (s.ip & 0xFFFF)) & 0xFFFFF]
+        else:
+            v = mem.rb(s.cs, s.ip)
+        s.ip = (s.ip + 1) & 0xFFFF
         return v
 
     def fetch16(self) -> int:
+        s = self.s
+        mem = self.mem
+        if not mem.ega_planar:
+            data = mem.data
+            base = (s.cs << 4) & 0xFFFFF
+            ip = s.ip & 0xFFFF
+            lo = data[(base + ip) & 0xFFFFF]
+            hi = data[(base + ((ip + 1) & 0xFFFF)) & 0xFFFFF]
+            s.ip = (ip + 2) & 0xFFFF
+            return lo | (hi << 8)
         lo = self.fetch8()
         hi = self.fetch8()
         return lo | (hi << 8)
@@ -871,8 +889,26 @@ class CPU8086:
         return res & mask, names[group]
 
     def condition(self, cond: int) -> bool:
-        cf,zf,sf,of,pf = self.get_flag(CF),self.get_flag(ZF),self.get_flag(SF),self.get_flag(OF),self.get_flag(PF)
-        return [of, not of, cf, not cf, zf, not zf, cf or zf, not(cf or zf), sf, not sf, pf, not pf, sf != of, sf == of, zf or (sf != of), (not zf) and (sf == of)][cond]
+        # Hot path: direct flag-bit tests, evaluating only the asked condition
+        # (the previous 16-element list built every condition on every call).
+        f = self.s.flags
+        if cond == 0x0: return bool(f & OF)
+        if cond == 0x1: return not (f & OF)
+        if cond == 0x2: return bool(f & CF)
+        if cond == 0x3: return not (f & CF)
+        if cond == 0x4: return bool(f & ZF)
+        if cond == 0x5: return not (f & ZF)
+        if cond == 0x6: return bool(f & (CF | ZF))
+        if cond == 0x7: return not (f & (CF | ZF))
+        if cond == 0x8: return bool(f & SF)
+        if cond == 0x9: return not (f & SF)
+        if cond == 0xA: return bool(f & PF)
+        if cond == 0xB: return not (f & PF)
+        sf, of = bool(f & SF), bool(f & OF)
+        if cond == 0xC: return sf != of
+        if cond == 0xD: return sf == of
+        if cond == 0xE: return bool(f & ZF) or (sf != of)
+        return not (f & ZF) and (sf == of)
 
     def string_op(self, op: int, rep: int | None, seg_override: str | None = None) -> str:
         s = self.s
