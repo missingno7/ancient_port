@@ -173,18 +173,54 @@ def master_tick_hz(rt) -> float:
     return rt.dos.PIT_INPUT_HZ / reload
 
 
+_PARK_PROBE_BATCH = 512  # steps between parked-in-wait probes (any value gives
+                         # identical machine state; it only tunes probe overhead)
+
+
+def _run_budget_or_park(rt, budget: int) -> None:
+    """Step up to ``budget`` instructions, stopping early -- parked at the
+    spin's canonical head -- once the game enters a registered tick-wait whose
+    condition cannot change until the next delivered IRQ.
+
+    This is the cookbook's deterministic timing fast-forward: idle spin
+    iterations are provably identical (the loop only re-reads the tick counter
+    and its target, and only our IRQ delivery advances the tick), so skipping
+    them changes nothing the game can observe.  Parking exactly at the head
+    (ancient.timing.park_at_wait_head) makes the stop point -- and therefore
+    the IRQ delivery point -- a pure function of machine state, independent of
+    the probe batch size.  No state is faked and no IRQ is skipped: the budget
+    is simply not burned interpreting a busy-wait (pitfalls #12/#13)."""
+    from ancient.timing import park_at_wait_head
+
+    cpu = rt.cpu
+    remaining = budget
+    while remaining > 0:
+        if park_at_wait_head(cpu) is not None:
+            return
+        batch = _PARK_PROBE_BATCH if remaining > _PARK_PROBE_BATCH else remaining
+        cpu.run(batch)
+        remaining -= batch
+    park_at_wait_head(cpu)  # budget spent mid-iteration: still park canonically
+
+
 def run_frame(rt, frame: int, *, chunk_steps: int, ticks_per_frame: float) -> None:
-    """Advance exactly one presented frame of the chunked demo clock.
+    """Advance one presented frame of the chunked demo clock.
 
     The single shared frame-advance for the interactive loop AND headless
     record/replay tests — never duplicate this loop (drifting copies void
-    demo proofs)."""
+    demo proofs).  A frame is UP TO ``chunk_steps`` instructions: each of the
+    frame's IRQ-quota sub-budgets ends early (parked at the wait head) when
+    the game is idling in a tick wait, so the budget is spent on real work,
+    never on interpreting spin iterations.  Recordings replay identically
+    under the same {chunk_steps, present_hz} (both stored in the manifest;
+    demos recorded under the pre-parking clock are not replay-compatible —
+    none were promoted)."""
     ticks = ticks_for_frame(frame, ticks_per_frame)
     sub = chunk_steps // (ticks + 1)
     for _ in range(ticks):
-        rt.cpu.run(sub)
+        _run_budget_or_park(rt, sub)
         deliver_interrupt(rt, 0x08)
-    rt.cpu.run(chunk_steps - sub * ticks)
+    _run_budget_or_park(rt, chunk_steps - sub * ticks)
 
 
 # ---------------------------------------------------------------------- main

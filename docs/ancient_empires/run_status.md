@@ -79,6 +79,50 @@ instruction budget in this scene**, from a single leaf. Confirms the charter's
 guidance that blitters are the right first targets both for game speed and
 for system observability.
 
+## 2026-07-08 (later) — VM efficiency: wait-parking + interpreter micro-opts
+
+Owner asked for the game to run better even at pure ASM. Profiling showed the
+real sink: **~86% of interpreted gameplay steps were the 7-instruction
+deadline-wait spin at 6C71** — the game busy-waiting for the next master tick
+that only our own IRQ delivery can provide. Two slices:
+
+1. **Deterministic wait-parking in the interactive clock** (the cookbook's
+   timing fast-forward; pitfalls #12–14 respected — no state faked, every
+   IRQ delivered at its scheduled point, wall-clock pacing untouched).
+   `ancient/timing.py` grew `timer_wait_parked` (in-loop range detection,
+   6C40..6C52 / 6C71..6C85, condition-gated) and `park_at_wait_head` (step
+   to the canonical head — while the wait condition holds every iteration
+   recomputes identical register state, so the head is a batch-size-
+   independent, deterministic parking point; fails loud if the loop model is
+   ever wrong). `scripts/play.py run_frame` now runs each IRQ sub-budget as
+   "up to N steps, stop early parked at the head". Equivalence evidence:
+   over 300 gameplay frames old-clock vs parked-clock, VRAM + back-buffer
+   are byte-identical and DGROUP differs in exactly 3 bytes, all of which
+   map into SS below SP (dead-stack IRQ-frame residue — the same class the
+   hook verifier exempts). Demos recorded under the pre-parking clock are
+   not replay-compatible (none were promoted; documented in run_frame).
+2. **Game-agnostic interpreter micro-opts** (`dos_re/cpu.py`): inline
+   non-planar code-fetch fast path in `fetch8`/`fetch16` (was two function
+   calls per code byte), and `condition()` now tests only the asked flag
+   combination (was: build a 16-element list evaluating every condition,
+   5 `get_flag` calls, per branch instruction). **Bit-exact**: fixed
+   300-frame run digest unchanged (3c16e9eb…); full suite green.
+
+Measured on the gameplay snapshot (300 frames, chunk 40k, 60 Hz schedule):
+| configuration | fps-equivalent | notes |
+|---|---|---|
+| before (pure ASM) | **11.0** | unplayably slow, 86% of steps in the spin |
+| + wait-parking | **75.3** | 12.1M → 1.67M interpreted instr per 300 frames |
+| + micro-opts | **79.1** | raw interpreter 280k → 481k steps/s (decompress path 1.7x) |
+
+Pure-ASM gameplay is now above the 60 fps real-time target on this machine;
+recovered hooks stack on top. Remaining known interpreter cost (future,
+larger refactor, not this slice): `execute_opcode` builds disassembly
+f-strings on every instruction even with trace off, and dispatches through a
+long if-chain — a dispatch-table + lazy-trace refactor is the next big lever
+if heavy scenes (level load ~50M steps) ever need it. PyPy is another
+untested option (framework is stdlib-only by design).
+
 ## Next
 
 1. Continue the lifting loop on the next hot leaf (profile_gameplay.py
