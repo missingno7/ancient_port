@@ -8,13 +8,22 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from dos_re.runtime import Runtime, create_runtime
+from dos_re.runtime import BIOS_INT9_ENTRY, Runtime, create_runtime
 from dos_re.snapshot import load_snapshot
 
 EXE_NAME = "AEPROG.EXE"
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_EXE = ROOT / "assets" / EXE_NAME
+
+# DGROUP paragraph (load_seg 0x1010 + 0x0FA3); DS:xxxx offsets are DGROUP-relative.
+DGROUP_SEG = 0x1FB3
+# The game saves the previous INT 9 vector here during install (traced 1010:6B88);
+# its ISR chains buffered keys through it.  Snapshots taken before the framework
+# grew a native BIOS INT 9 handler saved the old F000:FF53 IRET stub, so their
+# menu keyboard input is dead — repoint them at the real handler on load.
+SAVED_INT9_VECTOR_OFF = 0xC0CC
+_OLD_BIOS_STUB = (0xF000, 0xFF53)
 
 
 def create_game_runtime(
@@ -53,4 +62,19 @@ def load_game_snapshot(
     *,
     game_root: str | Path | None = None,
 ) -> Runtime:
-    return load_snapshot(exe_path, snapshot_dir, game_root=game_root)
+    rt = load_snapshot(exe_path, snapshot_dir, game_root=game_root)
+    _repair_saved_int9_vector(rt)
+    return rt
+
+
+def _repair_saved_int9_vector(rt: Runtime) -> None:
+    """Migrate a pre-fix snapshot: if the game's saved INT 9 vector still points
+    at the old bare IRET stub, repoint it at the native BIOS keyboard handler so
+    chained keystrokes reach the type-ahead buffer (menu navigation)."""
+    mem = rt.cpu.mem
+    off = mem.rw(DGROUP_SEG, SAVED_INT9_VECTOR_OFF)
+    seg = mem.rw(DGROUP_SEG, SAVED_INT9_VECTOR_OFF + 2)
+    if (seg, off) == _OLD_BIOS_STUB:
+        new_seg, new_off = BIOS_INT9_ENTRY
+        mem.ww(DGROUP_SEG, SAVED_INT9_VECTOR_OFF, new_off)
+        mem.ww(DGROUP_SEG, SAVED_INT9_VECTOR_OFF + 2, new_seg)

@@ -32,3 +32,12 @@ offsets; DGROUP DS=1FB3 (doc `DS:xxxx` offsets apply directly).
 | DS:08FC | last key read in intro loop | OBSERVED | 559F stores AX |
 | 1010:6E11..6E97 | DAT load/decompress hot loop (boot) | OBSERVED | park histogram during load |
 | DS:3924 | far-ptr table to page buffers (blit source/dest) | OBSERVED | blit routine at 0604..063D uses it; 320-byte rows |
+| F000:E987 | native BIOS INT 09h keyboard handler (framework) | VERIFIED | dos_re.DOSMachine.bios_int9_keyboard; IVT[9] target at power-on; tests/test_bios_keyboard.py |
+| DS:C0CC | saved previous INT9 vector (game chains buffered keys here) | TRACED | install 6B88; snapshot repair repoints stale F000:FF53→F000:E987 |
+| DS:0B72 | route-keys-to-BIOS-buffer flag (menus set it; ISR chains special keys only when !=0) | TRACED | ISR 6AE9 cmp [0B72],0; non-special keys always chain (di=0 path) |
+| 1010:01CE | set_text_style(style) — DS:40C8 = VGA colour table DS:3904[style] | TRACED | lindis; reads DS:BFCD |
+| 1010:0215 | set_color_pair(idx,vga,ega) → DS:3904[idx]/DS:00BE[idx] | TRACED | lindis 0215..0231 |
+| DS:3904 | VGA text-colour table (identity init; menu overwrites 0..8 → 0x8004) | OBSERVED | see blockers.md red-text |
+| DS:009C / DS:00DE | VGA / EGA text-colour source tables (memcpy'd at 0232) | TRACED | lindis |
+| DS:BFCD | video/colour mode selector (1..5; =5 here) | OBSERVED | switch 502C..504B |
+| 1010:17A4 | glyph blitter — ORs 1bpp rows using DS:40C8 low byte as colour | TRACED | lindis; matches KB graphics.md |

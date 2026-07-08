@@ -22,7 +22,7 @@ from dos_re.frame_verify import (
     make_frame_sample,
     run_frame_verifier as run_generic_frame_verifier,
 )
-from dos_re.runtime import Runtime
+from dos_re.runtime import BIOS_INT9_ENTRY, Runtime
 
 from .input_waits import frame_verify_wait_detector
 from .timing import deliver_ae_timer_irq0
@@ -33,7 +33,10 @@ VRAM_SIZE = WIDTH * HEIGHT
 
 # No replacement-hook boundaries during bring-up; detector-only.
 BOUNDARY_HOOKS: tuple[tuple[Addr, str], ...] = ()
-REFERENCE_ENV_HOOKS: set[Addr] = set()
+# The native BIOS INT 9 keyboard handler is core hardware, not a recovered
+# island: the oracle must keep it so buffered keyboard input (menu navigation)
+# behaves identically on both sides.
+REFERENCE_ENV_HOOKS: set[Addr] = {BIOS_INT9_ENTRY}
 
 
 def pump_tick(reference: Runtime, candidate: Runtime) -> None:

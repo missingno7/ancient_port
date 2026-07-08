@@ -84,16 +84,44 @@ PC-speaker SFX must work; CGA/EGA stay isolated and never block VGA.
   definitions. Fine while each driver replays its own recordings; must be
   unified before the proof-corpus demos are recorded (porting guide step 6).
 
+## 2026-07-07 — framework grew a BIOS INT 09h keyboard handler (menu input fix)
+
+- **Bug (owner-reported):** arrow keys dead in menus; Enter accepted but
+  navigation didn't move. **Root cause:** the game's INT 9 ISR (1010:699E)
+  keeps its own held-key table for gameplay but, for buffered input, **chains
+  to the previous BIOS INT 9** (saved at DS:C0CC). Menus poll INT 16h, so
+  arrows must arrive as BIOS extended codes (AL=0, AH=scancode). Our power-on
+  INT 9 vector was a bare IRET stub → chained keys never entered the type-ahead
+  buffer. (Non-special keys always chain; special keys chain only when the
+  game's DS:0B72 buffer-route flag is set — menus on, gameplay off. So the fix
+  needs no game knowledge: a real BIOS handler at the chain target.)
+- **Fix (framework, game-agnostic):** `dos_re` now installs a native BIOS
+  INT 09h keyboard handler (`DOSMachine.bios_int9_keyboard`) at
+  `runtime.BIOS_INT9_ENTRY` (F000:E987); IVT[9] points there at power-on so the
+  game saves & chains to it. It does standard set-1 scancode→buffer translation
+  (shift/caps, extended nav/F-keys as scancode<<8) into `key_queue`. All
+  drivers that call `deliver_scancode` now get consistent buffered input — this
+  also closes a latent §6 gap (the frame verifier/replay path never enqueued
+  before). Added to the adapter's `REFERENCE_ENV_HOOKS` so the oracle keeps it.
+- **Adapter:** `ancient/keys.py` simplified (no manual key_queue push — the
+  chain does it, faithfully). `load_game_snapshot` repairs pre-fix snapshots
+  whose saved INT9 vector (DS:C0CC) still points at the old stub.
+- **Proven:** down-arrow moves the sign-in highlight (Start New Game → Viktor)
+  via the real ISR chain; Enter advances screens; unit tests
+  `tests/test_bios_keyboard.py` (translation, shift, buffer bound, install);
+  full suite 122 green. Cached intro snapshot regenerated with the new vector.
+- **Still open:** menu text renders red (index 4) but should be black — logged
+  in blockers.md (separate root cause; reference port confirms black).
+
 ## Next
 
-1. Owner playtest via scripts/play.py: enable music in-game (Options F3),
+1. **Red menu text** (blockers.md): trace the write of 0x8004 to DS:3904[0..8]
+   during intro→sign-in; determine VM-divergence vs faithful.
+2. Owner playtest via scripts/play.py: enable music in-game (Options F3),
    confirm AdLib path live; then trace the DS:1778 write site.
-2. Unify the demo-clock definition across play.py and the frame verifier
+3. Unify the demo-clock definition across play.py and the frame verifier
    before recording proof-corpus demos.
-3. Find the present/blit routine (page-buffer far-ptr table at DS:3924) for
-   a present boundary; widen the sample toward full observable state.
-4. First lifting targets: the DAT decompressor hot loop at 1010:6E11..6E97
-   (boot spends ~40M+ instructions there), per porting guide step 7.
+4. First lifting targets: the DAT decompressor hot loop at 1010:6E11..6E97.
 
 ## Blockers
 
