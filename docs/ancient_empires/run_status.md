@@ -268,3 +268,24 @@ untested option (framework is stdlib-only by design).
 ## Blockers
 
 None open — see blockers.md.
+
+## 2026-07-08 — reusable pieces promoted to the upstream framework
+
+Everything game-agnostic this port produced was ported to the original
+framework repo (D:\Games\DOS\dos_re, five commits 13dd527..4bed49b): the
+three AEPROG-driven BIOS/DOS services (INT10 AH=1Ah, INT15 AH=C0h, INT21
+AX=4400h), the lowest-free-file-handle fix (the red-text overrun class),
+the native BIOS INT 9 keyboard handler + IVT[9] wiring, the real-mode fetch
+fast path + single-condition Jcc evaluation, the audit_hook_oracle
+GenericHookStop fix, and the vendor-test tracked-artifact fix.
+
+Cross-validation both ways: a 300-frame Ancient Empires gameplay run under
+the upstream core produces a full-memory SHA-1 **identical** to our vendored
+core (3c16e9eb…) — and runs ~11% faster (87.8 vs 79.1 fps-equivalent),
+because upstream's own parallel work (lazy trace strings, hot-opcode
+reorder, from its SimAnt/Win16 target) stacks with our ports.
+
+**Recommended follow-up:** re-vendor dos_re/ from upstream into this repo to
+pick up that extra ~11% (plus PUSHA/POPA, CMC, selector mode, x87 subset for
+free). The digest cross-check above is the safety evidence; do it as its own
+slice with the full suite + a fresh digest check as the gate.
