@@ -22,7 +22,7 @@ classifiers = [
 ]
 
 [project.urls]
-Repository = "https://github.com/missingno7/ancient_re"
+Repository = "https://github.com/missingno7/ancient_port"
 
 [tool.pytest.ini_options]
 # "." for ancient/, "dos_re" for the framework submodule (dos_re/ here is the
