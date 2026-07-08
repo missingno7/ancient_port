@@ -61,7 +61,14 @@ def load_game_snapshot(
     snapshot_dir: str | Path,
     *,
     game_root: str | Path | None = None,
+    install_replacements: bool = True,
 ) -> Runtime:
+    """Resume a snapshot.  ``install_replacements=False`` gives the pure-ASM
+    oracle (e.g. the frame verifier's reference side further strips hooks down
+    to REFERENCE_ENV_HOOKS itself, but callers building a standalone ASM-only
+    runtime should pass this explicitly rather than relying on that)."""
+    if install_replacements:
+        from . import hooks  # noqa: F401  (registers @registry.replace handlers)
     rt = load_snapshot(exe_path, snapshot_dir, game_root=game_root)
     _repair_saved_int9_vector(rt)
     return rt

@@ -41,3 +41,10 @@ offsets; DGROUP DS=1FB3 (doc `DS:xxxx` offsets apply directly).
 | DS:009C / DS:00DE | VGA / EGA text-colour source tables (memcpy'd at 0232) | TRACED | lindis |
 | DS:BFCD | video/colour mode selector (1..5; =5 here) | OBSERVED | switch 502C..504B |
 | 1010:17A4 | glyph blitter — ORs 1bpp rows using DS:40C8 low byte as colour | TRACED | lindis; matches KB graphics.md |
+| 1010:08F2 | masked-bitmap blitter (clip+mirror+transparent+silhouette record) | ASM_MATCHED | ancient/recovered/blit.py; hook-oracle 300+ live calls 0 divergence + frame-oracle 100 boundaries; dispatched via thunk 1010:03CC |
+| 1010:03CC (jump-table thunk) | `jmp 08F2` — actor-draw's blit entry point | TRACED | lindis; caller 1010:4DB2 (inside the "Actor draw loop" region, exe_map.md ~0x4EF8) |
+| DS:3924 | per-scanline row-pointer table (200×4B far ptr, segment:0 form, seg+=0x14/row) | TRACED | live read; row0 seg=3D0D..row199 seg=4C99, all offset=0 |
+| (0x3D0D0 linear, size 64000) | back-buffer (NOT A000 directly) — present step copies it to VGA | OBSERVED | byte-identical to A000 in the 164943 snapshot; blitter writes land here |
+| DS:0094/0096/0098/009A | playfield clip rect (top,bottom,left,right); left/right compared in half-pixel-pair units | TRACED | blit routine; live values (0x10,0x9F,0x04,0x9B) |
+| DS:00BC | "record silhouette" flag (blit appends a 4-byte record to DS:40C4 list when ==1) | OBSERVED | ==1 during real gameplay |
+| DS:40C4/40C6 | silhouette-list far-ptr cursor (4-byte records: x_half_lo,y_lo,width_bytes,height) | TRACED | blit routine; purpose (dirty-rect? hitbox?) still UNCONFIRMED |

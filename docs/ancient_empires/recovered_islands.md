@@ -12,3 +12,4 @@ architecture).
 
 | ASM boundary | Function | Status | Merge target | Contract |
 |---|---|---|---|---|
+| `1010:08F2` | `recovered.blit.blit_masked_bitmap` | ASM_MATCHED | ancient.recovered.render | full register(AX/BX/CX/DX/ES)+flags+full-memory equivalence at RET (masked sprite blit: clip, optional horizontal mirror, transparent colour 0, DS:40C4 silhouette record) |

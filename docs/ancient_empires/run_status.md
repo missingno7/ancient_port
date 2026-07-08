@@ -1,8 +1,95 @@
 # Ancient Empires port — run status
 
-Current phase: **bring-up (porting guide steps 0–6, lifecycle Stage 0)**.
-Owner priorities: VGA is the primary video mode; AdLib/OPL music and
-PC-speaker SFX must work; CGA/EGA stay isolated and never block VGA.
+Current phase: **lifecycle Stage 1 (first islands) started 2026-07-08** —
+bring-up (Stage 0) is complete; gameplay is reachable and the first hot leaf
+routine is recovered and hook-oracle verified. Owner priorities: VGA is the
+primary video mode; AdLib/OPL music and PC-speaker SFX must work; CGA/EGA
+stay isolated and never block VGA.
+
+## 2026-07-08 — first recovered island: the sprite blitter at 1010:08F2 (ASM_MATCHED)
+
+- **Evidence for the target**: `ancient/probes/profile_gameplay.py` (drives
+  real frames via play.py's `run_frame`, not raw steps) showed the pixel
+  loops at 099E/0A66 as the dominant non-pacing backward edges in real
+  gameplay — by a wide margin over every other executed address. Traced the
+  entry (`push bp` prologue) back to **1010:08F2**, reached from the actor
+  draw dispatcher (1010:4DB2) via the low jump-table thunk **1010:03CC**
+  (`jmp 08F2`) — matches exe_map.md's "Actor draw loop" region.
+- **What it does** (docs/ancient_empires/graphics.md's Type 0x47 bitmap
+  format, confirmed structurally): a masked sprite blit — clips against a
+  playfield rect (DS:0094/96/98/9A), optionally mirrors horizontally, maps
+  each 4-bit logical-colour nibble (high nibble first; 0 = transparent,
+  skipped) through the sprite's own 16-entry VGA colour table, and writes
+  through a per-scanline pointer table at **DS:3924** (200×4-byte
+  segment:0-style far pointers — NOT the VGA A000 aperture directly; it
+  targets a **back-buffer** that a separate present step later copies to
+  A000, confirmed byte-identical to A000 in a live snapshot). When the
+  game's **DS:00BC** flag is set (true throughout normal play) it also
+  appends a 4-byte `{x_half, y, width_bytes, height}` record to a growing
+  list anchored at **DS:40C4** — purpose not yet confirmed (dirty-rect list
+  or hitbox cache; logged as open in the symbol ledger).
+- **Recovery method**: because the hook oracle diffs full registers + flags
+  + memory, this leaf's clobbered scratch registers (AX/BX/CX/DX/ES) and
+  flags at RET are part of its verified contract — so
+  `ancient/recovered/blit.py` is a byte-exact mechanical transcription of
+  the ASM (not a "clean" reimplementation), using hand-ported 8086
+  SUB/ADD/DEC flag formulas (recovered/ cannot import dos_re, so these are
+  duplicated locally, matching `CPU8086.set_sub_flags` etc.). Two real bugs
+  were caught and fixed by the oracle during this process (worth recording
+  as the concrete value of full-diff verification, pitfall #7):
+  1. **Register reuse mis-modeled**: BX is the X/clip-math register through
+     0x0996, then gets `pop`ped at 0x099B to become the colour-table byte
+     offset for the rest of the routine — an entirely different value. My
+     first draft kept using the clip-derived BX throughout.
+  2. **One write-offset transcription error**: the "low nibble transparent,
+     high nibble opaque" case writes to `[DI]` directly (`09E0..09E3`), not
+     `[DI+1]` as the symmetric-looking "high transparent" case does
+     (`09C4/09C5`) — caught via a 26-byte pixel-level memory diff.
+- **Proven**: `tests/test_blit_08f2.py` — (a) strict/auto-continuation hook
+  oracle, full register+flags+full-memory diff, across 60 real gameplay
+  frames (both the normal and mirrored draw paths exercised, ~100/300
+  mirrored in a longer manual run); (b) frame-oracle equivalence (ASM
+  reference vs hooked candidate) over 100 wait-paced boundaries, pixel- and
+  VRAM-exact. Both require a **local, uncommitted** gameplay snapshot
+  (`artifacts/snapshot_ae_20260708_164943` — game memory dumps embed
+  original asset data, kept out of git per demos_and_snapshots.md) and skip
+  without it. Full suite 125 green; lint + both layer/hook-oracle audits
+  clean. First island manifest entry generated
+  (`docs/ancient_empires/recovered_islands.md`).
+- **Framework addition**: `ancient/islands.py` — a thin re-export of
+  `dos_re.islands.oracle_link`/`OracleLink`. `tools/gen_island_manifest.py`
+  does `isinstance(link, dos_re.islands.OracleLink)`, so a duplicate
+  dataclass (the pre2_port precedent, which has its own self-contained
+  `gen_island_manifest.py`) would not be discovered by *this* repo's shared
+  tool; recovered code imports the adapter-level bridge instead of `dos_re`
+  directly, satisfying both the discovery mechanism and the layer audit.
+- **Also fixed in passing**: `ancient/runtime.py`'s `load_game_snapshot`
+  never imported `ancient.hooks`, so replacement hooks silently never
+  installed on any snapshot-resumed runtime (only fresh boots via
+  `create_game_runtime` got them) — a real gap since scripts/play.py's
+  `--snapshot`/`--play-demo` paths, and every test using `load_game_snapshot`,
+  were all running pure-ASM without noticing. Now takes the same
+  `install_replacements` flag as `create_game_runtime` (default True).
+
+## Performance signal
+
+One hook: ~300 calls in a 300-frame gameplay sample, each replacing ~3300
+interpreted steps with one native step — roughly **8% of the interpreted
+instruction budget in this scene**, from a single leaf. Confirms the charter's
+guidance that blitters are the right first targets both for game speed and
+for system observability.
+
+## Next
+
+1. Continue the lifting loop on the next hot leaf (profile_gameplay.py
+   again from a fresh gameplay sample once more islands land — the DAT
+   decompressor hot loop at 1010:6E11..6E97 during boot is still
+   unrecovered and dominates cold-start time).
+2. Confirm the DS:40C4 silhouette-list purpose (watch for a consumer read).
+3. Record a first gameplay demo once the demo-clock unification (below) is
+   done, so this island gets demo-corpus coverage, not just live-snapshot
+   coverage (pitfall #6: a hook only counts as verified once a real demo
+   exercises it).
 
 ## 2026-07-06 — boot + video + input proven (OBSERVED)
 
@@ -128,14 +215,11 @@ PC-speaker SFX must work; CGA/EGA stay isolated and never block VGA.
   (evidence: artifacts/snap_signin_fixed/frame.png). Test:
   `test_file_handles_reuse_lowest_free_slot`. blockers.md updated (RESOLVED).
 - Both owner-reported issues (dead arrows, red text) were VM bugs, now fixed.
-
-## Next
-
-1. Owner playtest via scripts/play.py: confirm arrows + black text live; enable
-   music in-game (Options F3), confirm AdLib path; then trace DS:1778 write.
-2. Unify the demo-clock definition across play.py and the frame verifier
-   before recording proof-corpus demos.
-3. First lifting targets: the DAT decompressor hot loop at 1010:6E11..6E97.
+  Owner confirmed reaching real gameplay next session (2026-07-08); see the
+  "first recovered island" entry at the top of this file for what followed.
+  Still open from this era: AdLib in-game confirmation (Options F3, DS:1778
+  write site) and demo-clock unification (play.py's chunked clock vs the
+  frame verifier's wait-head clock) — both carried forward, see "Next" above.
 
 ## Blockers
 
