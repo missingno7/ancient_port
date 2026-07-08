@@ -44,8 +44,9 @@ beats large intuitive rewrites.
 ## Where things live
 
 ```text
-dos_re/       the framework package — see docs/architecture.md for the module map
-nuked_opl3/   vendored third-party OPL backend; must stay independent of dos_re
+dos_re/       git submodule: the framework package (dos_re/dos_re/) — see
+              dos_re/docs/architecture.md for the module map
+pynuked_opl3/ dos_re's own submodule (at dos_re/pynuked_opl3/): OPL backend
 docs/         the method; docs/README.md is the index
 examples/     minimal_adapter (runnable), adapter_skeleton (template)
 tests/        framework tests; game-free by construction

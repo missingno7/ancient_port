@@ -20,14 +20,18 @@ from pathlib import Path
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-PACKAGE_ROOTS = (ROOT / "dos_re", ROOT / "tools", ROOT / "examples", ROOT / "tests",
+# dos_re/ is now a git submodule -- a full repo root, not the package itself
+# (that's one level deeper, at dos_re/dos_re/). Scanning the submodule root
+# would also sweep in its own tests/tools/examples/docs, which dos_re has its
+# own lint for.
+PACKAGE_ROOTS = (ROOT / "dos_re" / "dos_re", ROOT / "tools", ROOT / "examples", ROOT / "tests",
                  ROOT / "ancient", ROOT / "scripts")
 
 # Modules the framework core is allowed to import besides the stdlib.
 CORE_ALLOWED_PREFIXES = ("dos_re",)
 
 # Optional third-party backends the *non-core* layers may use.
-KNOWN_OPTIONAL = ("nuked_opl3", "numpy", "pygame", "pytest", "cffi")
+KNOWN_OPTIONAL = ("pynuked_opl3", "numpy", "pygame", "pytest", "cffi")
 
 
 def _stdlib_names() -> set[str]:

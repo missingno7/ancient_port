@@ -141,8 +141,7 @@ layout, recovered logic — lives in your adapter. The boundary is documented in
 ## Repository layout
 
 ```text
-dos_re/       the framework package (VM + proof engines) — stdlib-only
-nuked_opl3/   vendored Nuked-OPL3 FM synthesis backend (optional, cffi)
+dos_re/       git submodule: the framework package (dos_re/dos_re/) — stdlib-only
 docs/         the method + guides            → start at docs/README.md
 examples/     runnable demos + adapter template — optional and deletable as a
               whole; nothing in the framework imports it (examples/README.md)
@@ -173,9 +172,9 @@ owned game to port.
 
 ## License
 
-MIT ([LICENSE](LICENSE)), except the vendored [`nuked_opl3/`](nuked_opl3/)
-package (Nuked-OPL3 emulator core + binding), which is LGPL-2.1-or-later — see
-[`nuked_opl3/LICENSE`](nuked_opl3/LICENSE).
+MIT ([LICENSE](LICENSE)), except `dos_re`'s own `pynuked_opl3/` submodule
+(Nuked-OPL3 emulator core + binding), which is LGPL-2.1-or-later — see
+[`dos_re/pynuked_opl3/LICENSE`](dos_re/pynuked_opl3/LICENSE).
 
 The framework's openness never extends to game IP: no game assets or
 executables are ever included here or in adapter repos; ports require a

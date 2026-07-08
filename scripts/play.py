@@ -86,14 +86,14 @@ class AudioSink:
 
         self._opl = None
         try:
-            from nuked_opl3 import OPL3
+            from pynuked_opl3 import OPL3
 
             self._opl = OPL3(sample_rate=self._rate)
-            self.opl_label = "nuked-opl3"
+            self.opl_label = "pynuked-opl3"
         except Exception as exc:
             self.opl_label = "unavailable"
             print(f"[audio] Nuked-OPL3 not built ({exc}); AdLib silent, "
-                  f"speaker still on. Build once: python -m nuked_opl3._ffi_build")
+                  f"speaker still on. Build once: python -m pynuked_opl3._ffi_build")
         # PC speaker square-wave state (phase-continuous across chunks).
         self._spk_on = False
         self._spk_freq = 0.0

@@ -17,8 +17,12 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-# the shipped framework package (examples are scanned too — they must stay importable)
-DIRS = ("dos_re", "examples")
+# dos_re/dos_re is the framework submodule's actual package (dos_re/ itself is
+# now the submodule's own repo root, which also carries its own tests/tools/
+# examples/docs -- already covered by dos_re's own equivalent check).
+# examples/ is this repo's own (ancient_port's) and is scanned too — it must
+# stay importable.
+DIRS = ("dos_re/dos_re", "examples")
 _BUILTINS = set(dir(builtins)) | {"__file__", "__name__", "__doc__", "__class__", "__all__", "self", "cls"}
 
 
