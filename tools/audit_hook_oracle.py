@@ -71,6 +71,9 @@ def _parse_registered_hooks(paths: list[Path]) -> dict[str, Addr]:
     return out
 
 
+# The continuation-metadata class as adapters actually name it: the framework
+# exports GenericHookStop (dos_re.verification); "HookStop" is kept for
+# adapters that alias/subclass it under the shorter historical name.
 _HOOK_STOP_CLASS_NAMES = ("HookStop", "GenericHookStop")
 
 
