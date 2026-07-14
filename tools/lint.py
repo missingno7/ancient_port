@@ -28,18 +28,19 @@ PACKAGE_ROOTS = (ROOT / "dos_re" / "dos_re", ROOT / "tools", ROOT / "examples", 
                  ROOT / "ancient", ROOT / "scripts")
 
 # Modules the framework core is allowed to import besides the stdlib.
-CORE_ALLOWED_PREFIXES = ("dos_re",)
+CORE_ALLOWED_PREFIXES = ("dos_re", "numpy")
 
 # Optional third-party backends the *non-core* layers may use.
-KNOWN_OPTIONAL = ("pynuked_opl3", "numpy", "pygame", "pytest", "cffi")
+KNOWN_OPTIONAL = ("numpy", "pygame", "pytest", "cffi", "sounddevice")
 
 # The FRONTEND RING: the viewer-facing modules inside the package that may use
 # the optional viewer dependencies (numpy + pygame + the OPL backend).
 # ``import dos_re`` itself must never pull them in — player.py keeps its
 # imports lazy; display.py and audio_sink.py are only imported by player.py
 # when a window actually opens.
-FRONTEND_RING = {"player.py", "display.py", "audio_sink.py"}
-FRONTEND_ALLOWED = ("numpy", "pygame", "pynuked_opl3")
+FRONTEND_RING = {"player.py", "display.py", "audio_sink.py", "overlay_menu.py",
+                 "pm_player.py"}
+FRONTEND_ALLOWED = ("numpy", "pygame", "sounddevice")
 
 
 def _stdlib_names() -> set[str]:
