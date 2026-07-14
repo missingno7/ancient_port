@@ -31,7 +31,7 @@ PACKAGE_ROOTS = (ROOT / "dos_re" / "dos_re", ROOT / "tools", ROOT / "examples", 
 CORE_ALLOWED_PREFIXES = ("dos_re", "numpy")
 
 # Optional third-party backends the *non-core* layers may use.
-KNOWN_OPTIONAL = ("numpy", "pygame", "pytest", "cffi", "sounddevice")
+KNOWN_OPTIONAL = ("numpy", "pygame", "pytest", "cffi", "sounddevice", "pynuked_opl3")
 
 # The FRONTEND RING: the viewer-facing modules inside the package that may use
 # the optional viewer dependencies (numpy + pygame + the OPL backend).
@@ -40,7 +40,7 @@ KNOWN_OPTIONAL = ("numpy", "pygame", "pytest", "cffi", "sounddevice")
 # when a window actually opens.
 FRONTEND_RING = {"player.py", "display.py", "audio_sink.py", "overlay_menu.py",
                  "pm_player.py"}
-FRONTEND_ALLOWED = ("numpy", "pygame", "sounddevice")
+FRONTEND_ALLOWED = ("numpy", "pygame", "sounddevice", "pynuked_opl3")
 
 
 def _stdlib_names() -> set[str]:
